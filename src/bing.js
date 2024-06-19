@@ -35,8 +35,10 @@ export async function loadFormattedSearchResults(query) {
     let outputMsg = "";
     let llmExtraContext = "Search results:\n\n";
     if (result?.webPages?.value) {
-      for (const item of result.webPages.value) {
-        outputMsg += `<a href="${item.url}">${item.name}</a>\n\n`;
+      for (const [index, item] of Object.entries(result.webPages.value)) {
+        if (index < 3) {
+          outputMsg += `<a href="${item.url}">${item.name}</a>\n\n`;
+        }
         llmExtraContext += `${item.name}\n${item.snippet}\n\n`;
       }
     }

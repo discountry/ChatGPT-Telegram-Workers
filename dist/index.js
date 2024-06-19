@@ -3,9 +3,9 @@ var Environment = class {
   // -- 版本数据 --
   //
   // 当前版本
-  BUILD_TIMESTAMP = 1718788880;
+  BUILD_TIMESTAMP = 1718798943;
   // 当前版本 commit id
-  BUILD_VERSION = "f891177";
+  BUILD_VERSION = "6a1b49c";
   // -- 基础配置 --
   /**
    * @type {I18n | null}
@@ -1651,10 +1651,12 @@ async function loadFormattedSearchResults(query) {
     let outputMsg = "";
     let llmExtraContext = "Search results:\n\n";
     if (result?.webPages?.value) {
-      for (const item of result.webPages.value) {
-        outputMsg += `<a href="${item.url}">${item.name}</a>
+      for (const [index, item] of Object.entries(result.webPages.value)) {
+        if (index < 3) {
+          outputMsg += `<a href="${item.url}">${item.name}</a>
 
 `;
+        }
         llmExtraContext += `${item.name}
 ${item.snippet}
 
