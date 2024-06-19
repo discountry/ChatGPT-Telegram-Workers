@@ -24,6 +24,7 @@ export default {
       'new': 'Start a new conversation',
       'start': 'Get your ID and start a new conversation',
       'img': 'Generate an image, the complete command format is `/img image description`, for example `/img beach at moonlight`',
+      'search': 'Search for information, the complete command format is `/search search content`, for example `/search how to learn programming`',
       'version': 'Get the current version number to determine whether to update',
       'setenv': 'Set user configuration, the complete command format is /setenv KEY=VALUE',
       'delenv': 'Delete user configuration, the complete command format is /delenv KEY',

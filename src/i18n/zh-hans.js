@@ -24,6 +24,7 @@ export default {
       'new': '发起新的对话',
       'start': '获取你的ID, 并发起新的对话',
       'img': '生成一张图片, 命令完整格式为 `/img 图片描述`, 例如`/img 月光下的沙滩`',
+      'search': '搜索一些信息, 命令完整格式为 `/search 搜索内容`, 例如`/search 如何学习编程`',
       'version': '获取当前版本号, 判断是否需要更新',
       'setenv': '设置用户配置，命令完整格式为 /setenv KEY=VALUE',
       'delenv': '删除用户配置，命令完整格式为 /delenv KEY',

@@ -22,9 +22,9 @@ class Environment {
   // 检查更新的分支
   UPDATE_BRANCH = 'master';
   // AI提供商: auto, openai, azure, workers, gemini, mistral
-  AI_PROVIDER = 'auto';
+  AI_PROVIDER = 'workers';
   // AI图片提供商: auto, openai, azure, workers
-  AI_IMAGE_PROVIDER = 'auto';
+  AI_IMAGE_PROVIDER = 'workers';
 
   // -- Telegram 相关 --
   //
@@ -130,7 +130,7 @@ class Environment {
   // Cloudflare Token
   CLOUDFLARE_TOKEN = null;
   // Text Generation Model
-  WORKERS_CHAT_MODEL = '@cf/mistral/mistral-7b-instruct-v0.1 ';
+  WORKERS_CHAT_MODEL = '@cf/qwen/qwen1.5-14b-chat-awq';
   // Text-to-Image Model
   WORKERS_IMAGE_MODEL = '@cf/stabilityai/stable-diffusion-xl-base-1.0';
 
@@ -147,6 +147,8 @@ class Environment {
   MISTRAL_COMPLETIONS_API = 'https://api.mistral.ai/v1/chat/completions';
   // mistral api model
   MISTRAL_CHAT_MODEL = 'mistral-tiny';
+  // Bing api key
+  BING_SUBSCRIPTION_KEY = null;
 }
 
 
@@ -184,6 +186,7 @@ export function initEnv(env, i18n) {
     CLOUDFLARE_TOKEN: 'string',
     GOOGLE_API_KEY: 'string',
     MISTRAL_API_KEY: 'string',
+    BING_SUBSCRIPTION_KEY: 'string',
   };
 
 

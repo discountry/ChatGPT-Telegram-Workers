@@ -3,9 +3,9 @@ var Environment = class {
   // -- 版本数据 --
   //
   // 当前版本
-  BUILD_TIMESTAMP = 1715873504;
+  BUILD_TIMESTAMP = 1718780779;
   // 当前版本 commit id
-  BUILD_VERSION = "90cf7c6";
+  BUILD_VERSION = "1866a3d";
   // -- 基础配置 --
   /**
    * @type {I18n | null}
@@ -16,9 +16,9 @@ var Environment = class {
   // 检查更新的分支
   UPDATE_BRANCH = "master";
   // AI提供商: auto, openai, azure, workers, gemini, mistral
-  AI_PROVIDER = "auto";
+  AI_PROVIDER = "workers";
   // AI图片提供商: auto, openai, azure, workers
-  AI_IMAGE_PROVIDER = "auto";
+  AI_IMAGE_PROVIDER = "workers";
   // -- Telegram 相关 --
   //
   // Telegram API Domain
@@ -114,7 +114,7 @@ var Environment = class {
   // Cloudflare Token
   CLOUDFLARE_TOKEN = null;
   // Text Generation Model
-  WORKERS_CHAT_MODEL = "@cf/mistral/mistral-7b-instruct-v0.1 ";
+  WORKERS_CHAT_MODEL = "@cf/qwen/qwen1.5-14b-chat-awq";
   // Text-to-Image Model
   WORKERS_IMAGE_MODEL = "@cf/stabilityai/stable-diffusion-xl-base-1.0";
   // Google Gemini API Key
@@ -129,6 +129,8 @@ var Environment = class {
   MISTRAL_COMPLETIONS_API = "https://api.mistral.ai/v1/chat/completions";
   // mistral api model
   MISTRAL_CHAT_MODEL = "mistral-tiny";
+  // Bing api key
+  BING_SUBSCRIPTION_KEY = null;
 };
 var ENV = new Environment();
 var DATABASE = null;
@@ -151,7 +153,8 @@ function initEnv(env, i18n2) {
     CLOUDFLARE_ACCOUNT_ID: "string",
     CLOUDFLARE_TOKEN: "string",
     GOOGLE_API_KEY: "string",
-    MISTRAL_API_KEY: "string"
+    MISTRAL_API_KEY: "string",
+    BING_SUBSCRIPTION_KEY: "string"
   };
   const customCommandPrefix = "CUSTOM_COMMAND_";
   for (const key of Object.keys(env)) {
@@ -1619,6 +1622,55 @@ async function chatWithLLM(text, context, modifier) {
   }
 }
 
+// src/bing.js
+async function bingWebSearch(query) {
+  try {
+    const response = await fetch(
+      "https://api.bing.microsoft.com/v7.0/search?q=" + encodeURIComponent(query),
+      {
+        headers: {
+          "Ocp-Apim-Subscription-Key": ENV.BING_SUBSCRIPTION_KEY
+        }
+      }
+    );
+    const data = await response.json();
+    for (let header in response.headers) {
+      if (header.startsWith("bingapis-") || header.startsWith("x-msedge-")) {
+        console.log(header + ": " + response.headers[header]);
+      }
+    }
+    return data;
+  } catch (error) {
+    console.log("Error: " + error.message);
+    throw error;
+  }
+}
+async function loadFormattedSearchResults(query) {
+  try {
+    const result = await bingWebSearch(query);
+    let outputMsg = "";
+    let llmExtraContext = "Search results:\n\n";
+    if (result?.webPages?.value) {
+      for (const item of result.webPages.value) {
+        outputMsg += `<a href="${item.url}">${item.name}</a>
+
+`;
+        llmExtraContext += `${item.name}
+${item.snippet}
+
+`;
+      }
+    }
+    if (outputMsg === "") {
+      outputMsg = "No results found";
+    }
+    return { outputMsg, llmExtraContext };
+  } catch (error) {
+    console.log("Error: " + error.message);
+    throw error;
+  }
+}
+
 // src/command.js
 var commandAuthCheck = {
   default: function(chatType) {
@@ -1641,6 +1693,7 @@ var commandSortList = [
   "/new",
   "/redo",
   "/img",
+  "/search",
   "/role",
   "/setenv",
   "/delenv",
@@ -1667,6 +1720,11 @@ var commandHandlers = {
   "/img": {
     scopes: ["all_private_chats", "all_chat_administrators"],
     fn: commandGenerateImg,
+    needAuth: commandAuthCheck.shareModeGroup
+  },
+  "/search": {
+    scopes: ["all_private_chats", "all_chat_administrators"],
+    fn: commandSearch,
     needAuth: commandAuthCheck.shareModeGroup
   },
   "/version": {
@@ -1790,6 +1848,32 @@ async function commandGenerateImg(message, command, subcommand, context) {
     }
     const img = await gen(subcommand, context);
     return sendPhotoToTelegramWithContext(context)(img);
+  } catch (e) {
+    return sendMessageToTelegramWithContext(context)(`ERROR: ${e.message}`);
+  }
+}
+async function commandSearch(message, command, subcommand, context) {
+  if (subcommand === "") {
+    return sendMessageToTelegramWithContext(context)(
+      ENV.I18N.command.search.help
+    );
+  }
+  try {
+    setTimeout(
+      () => sendChatActionToTelegramWithContext(context)("typing").catch(
+        console.error
+      ),
+      0
+    );
+    const { outputMsg, llmExtraContext } = await loadFormattedSearchResults(subcommand);
+    context.CURRENT_CHAT_CONTEXT.parse_mode = "HTML";
+    sendMessageToTelegramWithContext(context)(outputMsg);
+    const prompt = `Answer question: ${subcommand}
+
+ using following search results as reference:
+
+${llmExtraContext}`;
+    return chatWithLLM(prompt, context, null);
   } catch (e) {
     return sendMessageToTelegramWithContext(context)(`ERROR: ${e.message}`);
   }
@@ -2553,6 +2637,7 @@ var zh_hans_default = {
       "new": "\u53D1\u8D77\u65B0\u7684\u5BF9\u8BDD",
       "start": "\u83B7\u53D6\u4F60\u7684ID, \u5E76\u53D1\u8D77\u65B0\u7684\u5BF9\u8BDD",
       "img": "\u751F\u6210\u4E00\u5F20\u56FE\u7247, \u547D\u4EE4\u5B8C\u6574\u683C\u5F0F\u4E3A `/img \u56FE\u7247\u63CF\u8FF0`, \u4F8B\u5982`/img \u6708\u5149\u4E0B\u7684\u6C99\u6EE9`",
+      "search": "\u641C\u7D22\u4E00\u4E9B\u4FE1\u606F, \u547D\u4EE4\u5B8C\u6574\u683C\u5F0F\u4E3A `/search \u641C\u7D22\u5185\u5BB9`, \u4F8B\u5982`/search \u5982\u4F55\u5B66\u4E60\u7F16\u7A0B`",
       "version": "\u83B7\u53D6\u5F53\u524D\u7248\u672C\u53F7, \u5224\u65AD\u662F\u5426\u9700\u8981\u66F4\u65B0",
       "setenv": "\u8BBE\u7F6E\u7528\u6237\u914D\u7F6E\uFF0C\u547D\u4EE4\u5B8C\u6574\u683C\u5F0F\u4E3A /setenv KEY=VALUE",
       "delenv": "\u5220\u9664\u7528\u6237\u914D\u7F6E\uFF0C\u547D\u4EE4\u5B8C\u6574\u683C\u5F0F\u4E3A /delenv KEY",
@@ -2638,6 +2723,7 @@ var zh_hant_default = {
       "new": "\u958B\u59CB\u4E00\u500B\u65B0\u5C0D\u8A71",
       "start": "\u7372\u53D6\u60A8\u7684ID\u4E26\u958B\u59CB\u4E00\u500B\u65B0\u5C0D\u8A71",
       "img": "\u751F\u6210\u5716\u7247\uFF0C\u5B8C\u6574\u547D\u4EE4\u683C\u5F0F\u70BA`/img \u5716\u7247\u63CF\u8FF0`\uFF0C\u4F8B\u5982`/img \u6D77\u7058\u6708\u5149`",
+      "search": "\u641C\u7D22\u4FE1\u606F\uFF0C\u5B8C\u6574\u547D\u4EE4\u683C\u5F0F\u70BA`/search \u641C\u7D22\u5167\u5BB9`\uFF0C\u4F8B\u5982`/search \u5982\u4F55\u5B78\u7FD2\u7DE8\u7A0B`",
       "version": "\u7372\u53D6\u7576\u524D\u7248\u672C\u865F\u78BA\u8A8D\u662F\u5426\u9700\u8981\u66F4\u65B0",
       "setenv": "\u8A2D\u7F6E\u7528\u6236\u914D\u7F6E\uFF0C\u5B8C\u6574\u547D\u4EE4\u683C\u5F0F\u70BA/setenv KEY=VALUE",
       "delenv": "\u522A\u9664\u7528\u6236\u914D\u7F6E\uFF0C\u5B8C\u6574\u547D\u4EE4\u683C\u5F0F\u70BA/delenv KEY",
@@ -2723,6 +2809,7 @@ var en_default = {
       "new": "Start a new conversation",
       "start": "Get your ID and start a new conversation",
       "img": "Generate an image, the complete command format is `/img image description`, for example `/img beach at moonlight`",
+      "search": "Search for information, the complete command format is `/search search content`, for example `/search how to learn programming`",
       "version": "Get the current version number to determine whether to update",
       "setenv": "Set user configuration, the complete command format is /setenv KEY=VALUE",
       "delenv": "Delete user configuration, the complete command format is /delenv KEY",

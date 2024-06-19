@@ -9,6 +9,7 @@ import {
   sendPhotoToTelegramWithContext,
 } from './telegram.js';
 import {chatWithLLM, loadImageGen} from './llm.js';
+import { loadFormattedSearchResults } from './bing.js';
 
 
 const commandAuthCheck = {
@@ -35,6 +36,7 @@ const commandSortList = [
   '/new',
   '/redo',
   '/img',
+  "/search",
   '/role',
   '/setenv',
   '/delenv',
@@ -63,6 +65,11 @@ const commandHandlers = {
   '/img': {
     scopes: ['all_private_chats', 'all_chat_administrators'],
     fn: commandGenerateImg,
+    needAuth: commandAuthCheck.shareModeGroup,
+  },
+  "/search": {
+    scopes: ["all_private_chats", "all_chat_administrators"],
+    fn: commandSearch,
     needAuth: commandAuthCheck.shareModeGroup,
   },
   '/version': {
@@ -208,6 +215,43 @@ async function commandGenerateImg(message, command, subcommand, context) {
     }
     const img = await gen(subcommand, context);
     return sendPhotoToTelegramWithContext(context)(img);
+  } catch (e) {
+    return sendMessageToTelegramWithContext(context)(`ERROR: ${e.message}`);
+  }
+}
+
+/**
+ * /search 命令
+ * 
+ * @param {TelegramMessage} message
+ * @param {string} command
+ * @param {string} subcommand
+ * @param {Context} context
+ * @return {Promise<Response>}
+ */
+async function commandSearch(message, command, subcommand, context) {
+  if (subcommand === "") {
+    return sendMessageToTelegramWithContext(context)(
+      ENV.I18N.command.search.help
+    );
+  }
+  try {
+    setTimeout(
+      () =>
+        sendChatActionToTelegramWithContext(context)("typing").catch(
+          console.error
+        ),
+      0
+    );
+    const { outputMsg, llmExtraContext } = await loadFormattedSearchResults(subcommand);
+
+    context.CURRENT_CHAT_CONTEXT.parse_mode = "HTML";
+
+    sendMessageToTelegramWithContext(context)(outputMsg);
+
+    const prompt = `Answer question: ${subcommand}\n\n using following search results as reference:\n\n${llmExtraContext}`;
+
+    return chatWithLLM(prompt, context, null);
   } catch (e) {
     return sendMessageToTelegramWithContext(context)(`ERROR: ${e.message}`);
   }
