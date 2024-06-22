@@ -1,4 +1,4 @@
-import { ENV } from './env.js';
+import { ENV } from "./env.js";
 /**
  * Bing search functions START
  */
@@ -38,14 +38,25 @@ export async function loadFormattedSearchResults(query) {
       for (const [index, item] of Object.entries(result.webPages.value)) {
         if (index < 3) {
           outputMsg += `<a href="${item.url}">${item.name}</a>\n\n`;
+          const content = await fetchWebContentFromUrl(item.url);
+          llmExtraContext += `${item.name}\n${item.snippet}\n${content}\n\n`;
         }
-        llmExtraContext += `${item.name}\n${item.snippet}\n\n`;
       }
     }
     if (outputMsg === "") {
       outputMsg = "No results found";
     }
     return { outputMsg, llmExtraContext };
+  } catch (error) {
+    console.log("Error: " + error.message);
+    throw error;
+  }
+}
+
+async function fetchWebContentFromUrl(url) {
+  try {
+    const response = await fetch(url);
+    return response.text();
   } catch (error) {
     console.log("Error: " + error.message);
     throw error;
