@@ -3,9 +3,9 @@ var Environment = class {
   // -- 版本数据 --
   //
   // 当前版本
-  BUILD_TIMESTAMP = 1718798943;
+  BUILD_TIMESTAMP = 1719075546;
   // 当前版本 commit id
-  BUILD_VERSION = "6a1b49c";
+  BUILD_VERSION = "8ae2137";
   // -- 基础配置 --
   /**
    * @type {I18n | null}
@@ -1656,17 +1656,28 @@ async function loadFormattedSearchResults(query) {
           outputMsg += `<a href="${item.url}">${item.name}</a>
 
 `;
-        }
-        llmExtraContext += `${item.name}
+          const content = await fetchWebContentFromUrl(item.url);
+          llmExtraContext += `${item.name}
 ${item.snippet}
+${content}
 
 `;
+        }
       }
     }
     if (outputMsg === "") {
       outputMsg = "No results found";
     }
     return { outputMsg, llmExtraContext };
+  } catch (error) {
+    console.log("Error: " + error.message);
+    throw error;
+  }
+}
+async function fetchWebContentFromUrl(url) {
+  try {
+    const response = await fetch(url);
+    return response.text();
   } catch (error) {
     console.log("Error: " + error.message);
     throw error;
